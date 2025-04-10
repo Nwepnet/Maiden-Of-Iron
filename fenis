@@ -1,0 +1,70 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+local camera = workspace.CurrentCamera
+-- Create the flight tool
+local flightTool = Instance.new("Tool")
+flightTool.Name = "Flight"
+flightTool.RequiresHandle = false
+flightTool.CanBeDropped = false
+flightTool.Parent = player:WaitForChild("Backpack")
+-- Flight animations
+local flyIdleAnim = Instance.new("Animation")
+flyIdleAnim.AnimationId = "rbxassetid://97172005"
+local flyMovingAnim = Instance.new("Animation")
+flyMovingAnim.AnimationId = "rbxassetid://90872539"
+local idleTrack = humanoid:LoadAnimation(flyIdleAnim)
+local moveTrack = humanoid:LoadAnimation(flyMovingAnim)
+-- State
+local flying = false
+local speed = 0
+local maxSpeed = 100
+local acceleration = 4
+local floatHeight = 2 -- keep character floating at this vertical velocity
+-- Toggle flight
+flightTool.Activated:Connect(function()
+	flying = not flying
+	if flying then
+		speed = 0
+		humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+		idleTrack:Play()
+	else
+		speed = 0
+		humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+		humanoid.PlatformStand = false
+		idleTrack:Stop()
+		moveTrack:Stop()
+	end
+end)
+-- Flight update
+RunService.RenderStepped:Connect(function(dt)
+	if not flying then return end
+	humanoid.PlatformStand = true
+	-- Get move input (supports PC and mobile)
+	local moveInput = humanoid.MoveDirection
+	local isMoving = moveInput.Magnitude > 0
+	if isMoving then
+		speed = math.clamp(speed + acceleration, 0, maxSpeed)
+		local direction = camera.CFrame.LookVector.Unit
+		rootPart.Velocity = direction * speed
+		-- Rotate for superman pose
+		rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + direction) * CFrame.Angles(math.rad(-90), 0, 0)
+		if not moveTrack.IsPlaying then
+			idleTrack:Stop()
+			moveTrack:Play()
+		end
+	else
+		-- Stay floating in place
+		speed = 0
+		rootPart.Velocity = Vector3.new(0, floatHeight, 0)
+		rootPart.CFrame = CFrame.new(rootPart.Position, rootPart.Position + camera.CFrame.LookVector)
+		if not idleTrack.IsPlaying then
+			moveTrack:Stop()
+			idleTrack:Play()
+		end
+	end
+end)
